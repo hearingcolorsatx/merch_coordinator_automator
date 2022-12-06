@@ -2,7 +2,7 @@
 
 This repository is for the work I do at the LiveNation venues Emo's and the Historic Scoot Inn in Austin, TX.
 
-The `calendar_generator.py` script in this repo will scrape the calendars on the [Emo's ](https://www.emosaustin.com/events-calendar) and [Scoot Inn](https://scootinnaustin.com/calendar) websites to generate CSV with the information needed to create the schedule for the Merch Coordinators. It is generated in a format that can then be quickly modified and imported into Google Calendar using [the format expressed in the documentation here](https://support.google.com/calendar/answer/37118?hl=en&co=GENIE.Platform%3DDesktop#zippy=%2Ccreate-or-edit-a-csv-file).
+The `calendar_generator.py` script in this repo will scrape the calendars on the [Emo's ](https://www.emosaustin.com/events-calendar) and [Scoot Inn](https://scootinnaustin.com/calendar) websites to generate a CSV file with the information needed to create the schedule for the Merch Coordinators. It is generated in a format that can then be quickly modified and imported into Google Calendar using [the format expressed in the documentation here](https://support.google.com/calendar/answer/37118?hl=en&co=GENIE.Platform%3DDesktop#zippy=%2Ccreate-or-edit-a-csv-file).
 
 ### Instructions
 
