@@ -1,2 +1,8 @@
+__pycache__
 .venv
 calendar.csv
+credentials.json
+email_sender.txt
+email_recipients.txt
+email_table.csv
+token.json

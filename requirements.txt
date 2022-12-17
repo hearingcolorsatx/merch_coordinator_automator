@@ -1,2 +1,15 @@
+# Needed for quickstart.py
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+
+# Needed for calendar_generator.py
 bs4
 requests
+
+# Needed for calendar_emailer.py
+tabulate
+httplib2
+oauth2client
+apiclient
+google-api-python-client
