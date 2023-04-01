@@ -1,8 +1,13 @@
 __pycache__
 .venv
+./quickstart.py
+
+# csv files
 calendar.csv
-credentials.json
-email_sender.txt
-email_recipients.txt
 email_table.csv
+
+# auth/config
+credentials.json
+emails.json
+parameters.json
 token.json

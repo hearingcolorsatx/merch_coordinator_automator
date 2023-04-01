@@ -1,0 +1,5 @@
+{
+    "sender": "user@email.com",
+    "recipients": "user@email.com",
+    "cc": "user@email.com"
+}

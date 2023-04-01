@@ -7,9 +7,14 @@ google-auth-oauthlib
 bs4
 requests
 
-# Needed for calendar_emailer.py
+# Needed for cal_emailer_google.py
 tabulate
 httplib2
 oauth2client
 apiclient
 google-api-python-client
+
+# Needed for cal_emailer_o365.py
+PyAutoGUI
+requests
+pyperclip

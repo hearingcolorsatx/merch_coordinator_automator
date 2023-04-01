@@ -10,13 +10,17 @@ def compile_info():
     dates = soup.find_all('meta', itemprop = 'startDate')
     doors = soup.find_all('span', itemprop = 'doorTime')
     now = datetime.now()
-    first_next_month = (now + timedelta(days=30)).replace(day=1)
-    first_after_next = (now + timedelta(days=60)).replace(day=1)
+    first_next_month = (now + timedelta(days=30)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # print(first_next_month)
+    first_after_next = (now + timedelta(days=60)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # print(first_after_next)
 
     i = 0
     for artist in artists:
         start_date = datetime.strptime((datetime.strptime(dates[i]['content'][0:10], '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d'), '%Y-%m-%d')
-        if first_next_month <= start_date and start_date < first_after_next:
+        # print(start_date)
+        if start_date >= first_next_month and start_date < first_after_next:
+            # print(start_date)
             if i >= 0 and i < len(artists):
                 email_table = []
                 combined = []
@@ -54,22 +58,25 @@ for venue in venues:
     artists = soup.find_all('h2', itemprop='name')
     compile_info()
 
+for combos in output:
+    print(combos)
+
 header = ['Start Date', 'Subject', 'Start Time', 'End Time', 'End Date', 'Location', 'Description_1', 'Merch Coordinator', 'Description']
 email_header = ['Start Date', 'Subject', 'Start Time', 'Venue']
 
 # The following will generate email_table.csv in the same folder where this script is located. This is the table that will be emailed to the Merch Coordinators.
-with open('email_table.csv', 'w', encoding='UTF8') as f:
+with open('csv_files/email_table.csv', 'w', encoding='UTF8') as f:
     writer = csv.writer(f)
     writer.writerow(email_header)
     for show in table:
         writer.writerow(show)
 
 # The following will generate calendar.csv in the same folder where this script is located. This is the actual calendar that wil be used to create the schedule and can be imported in Google Calendars.
-with open('calendar.csv', 'w', encoding='UTF8') as f:
+with open('csv_files/calendar.csv', 'w', encoding='UTF8') as f:
     writer = csv.writer(f)
     writer.writerow(header)
     for combo in output:
         writer.writerow(combo)
 print()
-print("Exported to " + os.getcwd() + "/calendar.csv")
+print("Exported to " + os.getcwd() + "csv_files/calendar.csv")
 print()

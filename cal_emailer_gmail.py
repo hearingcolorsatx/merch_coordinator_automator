@@ -1,15 +1,12 @@
-import csv
-from tabulate import tabulate
-import httplib2
-import os
-import oauth2client
-from oauth2client import client, tools, file
-import base64
+import base64, csv, httplib2, json, oauth2client, os, sys
+
 from email import encoders
+from oauth2client import client, tools, file
+from tabulate import tabulate
 
 #needed for attachment
-import smtplib  
-import mimetypes
+import mimetypes, smtplib
+  
 from email import encoders
 from email.message import Message
 from email.mime.audio import MIMEAudio
@@ -44,6 +41,7 @@ from calendar_generator import *
         # If you need to change the scope:
             # you will need the CLIENT_ID each time to create a new credential that contains the new scope.
             # Set a new credentials_path for the new credential (because it's another file)
+
 def get_credentials():
     # If needed create folder for credential
     home_dir = os.path.expanduser('~') #>> C:\Users\Me
@@ -57,7 +55,7 @@ def get_credentials():
     credentials = store.get()
 
     if not credentials or credentials.invalid:
-        CLIENT_SECRET_FILE = 'credentials.json'
+        CLIENT_SECRET_FILE = 'config_files/credentials.json'
         APPLICATION_NAME = 'Gmail API Python Send Email'
         #The scope URL for read/write access to a user's calendar data  
 
@@ -72,7 +70,7 @@ def get_credentials():
     return credentials
 
 ## Get creds, prepare message and send it
-def create_message_and_send(sender, to, subject,  message_text_plain, message_text_html, attached_file):
+def create_message_and_send(sender, to, cc, subject,  message_text_plain, message_text_html, attached_file):
     credentials = get_credentials()
 
     # Create an httplib2.Http object to handle our HTTP requests, and authorize it using credentials.authorize()
@@ -84,19 +82,20 @@ def create_message_and_send(sender, to, subject,  message_text_plain, message_te
     service = discovery.build('gmail', 'v1', http=http)
 
     ## without attachment
-    message_without_attachment = create_message_without_attachment(sender, to, subject, message_text_html, message_text_plain)
+    message_without_attachment = create_message_without_attachment(sender, to, cc, subject, message_text_html, message_text_plain)
     send_Message_without_attachment(service, "me", message_without_attachment, message_text_plain)
 
     ## with attachment
     # message_with_attachment = create_Message_with_attachment(sender, to, subject, message_text_plain, message_text_html, attached_file)
     # send_Message_with_attachment(service, "me", message_with_attachment, message_text_plain,attached_file)
 
-def create_message_without_attachment (sender, to, subject, message_text_html, message_text_plain):
+def create_message_without_attachment (sender, to, cc, subject, message_text_html, message_text_plain):
     #Create message container
     message = MIMEMultipart('alternative') # needed for both plain & HTML (the MIME type is multipart/alternative)
     message['Subject'] = subject
     message['From'] = sender
     message['To'] = to
+    message['cc'] = cc
 
     #Create the body of the message (a plain-text and an HTML version)
     message.attach(MIMEText(message_text_plain, 'plain'))
@@ -107,7 +106,7 @@ def create_message_without_attachment (sender, to, subject, message_text_html, m
     body  = {'raw': raw_message_no_attachment}
     return body
 
-def create_Message_with_attachment(sender, to, subject, message_text_plain, message_text_html, attached_file):
+def create_Message_with_attachment(sender, to, cc, subject, message_text_plain, message_text_html, attached_file):
     """Create a message for an email.
 
     message_text: The text of the email message.
@@ -125,6 +124,7 @@ def create_Message_with_attachment(sender, to, subject, message_text_plain, mess
     ## Part 1
     message = MIMEMultipart() #when alternative: no attach, but only plain_text
     message['to'] = to
+    message['cc'] = cc
     message['from'] = sender
     message['subject'] = subject
 
@@ -239,30 +239,27 @@ def send_Message_with_attachment(service, user_id, message_with_attachment, mess
 
 def main():
     compile_info()
-    with open('email_table.csv') as input_file:
+    with open('csv_files/email_table.csv') as input_file:
         reader = csv.reader(input_file)
         data = list(reader)
 
-    with open('email_recipients.txt') as emails:
-        email = emails.readlines()
-
-    with open('email_sender.txt') as author:
-        sender = author.readlines()
+    emails = json.load(open("config_files/emails.json"))
 
     next_month = (datetime.now() + timedelta(days=30)).strftime("%B")
-    to = email[0]
-    sender = sender[0]
+    to = emails["recipients"]
+    cc = emails["cc"]
+    sender = emails["sender"]
     subject = f"{next_month} Calendar for Emo's/Scoot Inn"
     message_text_html  = r'''Hi All!<br/><br/>I hope everyone is well. It's that time of the month to start looking ahead to {}. The following shows need to be covered:<br/><br/>{table}
-    <br/>Just a reminder, the shows highlighted in blue are for evenings where there are shows at both venues. Let me know if there are specific shows you'd like to work. Otherwise,
+    <br/>Make note of dates where there are shows at both venues. Let me know if there are specific shows you'd like to work. Otherwise,
     just let me know your availability and I'll get the schedule put together in the next day or two. As always, it's first come first serve. If you have any questions or concerns,
     please let me know.<br/><br/>Cheers,<br/>Tim'''.format(next_month, table=tabulate(data, headers="firstrow", tablefmt = "html"))
     message_text_plain = f"""Hi All! \n \n I hope everyone is well. It's that time of the month to start looking ahead to {next_month}. The following shows need to be covered:\n \n
-    {data} \n \n Just a reminder, the shows highlighted in blue are for evenings where there are shows at both venues. Let me know if there are specific shows you'd like to work.
+    {data} \n \n Make note of dates where there are shows at both venues. Let me know if there are specific shows you'd like to work.
     Otherwise just let me know your availability and I'll get the schedule put together in the next day or two. As always, it's first come first serve. If you have any questions or
     concerns, please let me know. \n \nCheers,\nTim"""
     attached_file = r''
-    create_message_and_send(sender, to, subject, message_text_plain, message_text_html, attached_file)
+    create_message_and_send(sender, to, cc, subject, message_text_plain, message_text_html, attached_file)
 
 if __name__ == '__main__':
         main()

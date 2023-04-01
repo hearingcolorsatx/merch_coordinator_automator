@@ -1,0 +1,9 @@
+{
+    "auth_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/authorize",
+    "client_id": "CLIENT_ID",
+    "client_secret": "CLIENT_SECRET",
+    "redirect_uri": "https://redirect./app/UserHome",
+    "scope": "Mail.Send",
+    "tenant": "TENANT_ID",
+    "token_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/token"
+}
