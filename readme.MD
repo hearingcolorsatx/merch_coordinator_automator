@@ -48,11 +48,11 @@ to = emails["recipients"]
 cc = emails["cc"]
 ```
 
-I have included `./config_files/sample_emails.json` so the user could use that as a template and rename to `emails.json`. Provide a list of the `recipients'` separated by commas, e.g. user1@email.com, user@email.com, user@email.com. For `sender`, simply provide your own email (regardless of what is provided, it will show the sender as the email account that was authenticated in this workflow). You can also provide addresses in the `cc` similarly to how the recipients are done.
+I have included `./config_files/sample_emails.json` so the user could use that as a template and rename to `emails.json`. Provide a list of the `recipients` separated by commas, e.g. user1@email.com, user2@email.com, user3@email.com. For `sender`, simply provide your own email (regardless of what is provided, it will show the sender as the email account that was authenticated in this workflow). You can also provide addresses in the `cc` similarly to how the recipients are done.
 
 ### For `cal_emailer_gmail.py`
 
-For this implementation, I have 2FA enabled on my account. `cal_emailer_gmail.py` was taken and modified from [this post on StackOverflow.](https://stackoverflow.com/a/43379469). You will need access to the Google Cloud Platorm (GCP) for authentication in order to execute this script. Once you have access to https://console.cloud.google.com/, execute the following steps:
+For this implementation, I have 2FA enabled on my account. `cal_emailer_gmail.py` was taken and modified from [this post on StackOverflow](https://stackoverflow.com/a/43379469). You will need access to the Google Cloud Platorm (GCP) for authentication in order to execute this script. Once you have access to https://console.cloud.google.com/, execute the following steps:
 
 1. [Navigate here to enable the api you need](https://console.developers.google.com/apis/)
 
