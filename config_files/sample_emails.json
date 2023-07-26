@@ -1,5 +1,41 @@
 {
-    "sender": "user@email.com",
-    "recipients": "user@email.com",
-    "cc": "user@email.com"
+    "name": "John Doe",
+    "sender": "johndoe@email.com",
+    "number": "123.456.7890",
+    "gmail_recipients": "user1@email.com, user2@email.com",
+    "gmail_cc": "user3@email.com, user4@email.com",
+    "recipients": [
+        {
+            "emailAddress": {
+                "address": "user@email.com"
+            }
+        },
+        {
+            "emailAddress": {
+                "address": "user1@email.com"
+            }
+        },
+        {
+            "emailAddress": {
+                "address": "user2@email.com"
+            }
+        }
+    ],
+    "cc": [
+        {
+            "emailAddress": {
+                "address": "user3@email.com"
+            }
+        },
+        {
+            "emailAddress": {
+                "address": "user4@email.com"
+            }
+        },
+        {
+            "emailAddress": {
+                "address": "user5@email.com"
+            }
+        }
+    ]
 }
