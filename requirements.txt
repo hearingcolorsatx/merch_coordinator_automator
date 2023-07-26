@@ -6,6 +6,7 @@ google-auth-oauthlib
 # Needed for calendar_generator.py
 bs4
 requests
+openpyxl
 
 # Needed for cal_emailer_google.py
 tabulate

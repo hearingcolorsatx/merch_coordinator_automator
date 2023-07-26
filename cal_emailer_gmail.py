@@ -1,4 +1,4 @@
-import base64, csv, httplib2, json, oauth2client, os, sys
+import base64, httplib2, json, oauth2client, os
 
 from email import encoders
 from oauth2client import client, tools, file
@@ -7,6 +7,8 @@ from tabulate import tabulate
 #needed for attachment
 import mimetypes, smtplib
   
+from openpyxl import load_workbook
+from openpyxl.styles import colors, Font, Color
 from email import encoders
 from email.message import Message
 from email.mime.audio import MIMEAudio
@@ -92,6 +94,8 @@ def create_message_and_send(sender, to, cc, subject,  message_text_plain, messag
 def create_message_without_attachment (sender, to, cc, subject, message_text_html, message_text_plain):
     #Create message container
     message = MIMEMultipart('alternative') # needed for both plain & HTML (the MIME type is multipart/alternative)
+    print(type(message))
+    print("This is the message:", message)
     message['Subject'] = subject
     message['From'] = sender
     message['To'] = to
@@ -239,25 +243,80 @@ def send_Message_with_attachment(service, user_id, message_with_attachment, mess
 
 def main():
     compile_info()
-    with open('csv_files/email_table.csv') as input_file:
-        reader = csv.reader(input_file)
-        data = list(reader)
 
+    # Load the xlsx file
+    workbook = load_workbook(filename='xlsx_files/email_table.xlsx')
+    worksheet = workbook.active
+
+    # Read the data from the worksheet
+    data = []
+    for row in worksheet.iter_rows(min_row=1, min_col=1, max_col=5, values_only=False):
+        row_data = []
+        for cell in row:
+            value = cell.value
+            font = cell.font
+            fill = cell.fill
+            color = cell.font.color.rgb
+            row_data.append((value, font, fill, color))
+        data.append(row_data)
+
+    # Set the email message properties
+    table_html = """
+    <table border="1" cellpadding="2" cellspacing="0">
+    <tr>
+    {header_cells}
+    </tr>
+    {data_rows}
+    </table>
+    """
+    header_cells = ""
+    for header, font, fill, color in data[0]:
+        header_cells += f"<th style='background-color:{fill.bgColor.rgb};color:{color}{header}</th>"
+
+    data_rows = ""
+    for row_data in data[1:]:
+        row_html = ""
+        for cell in row_data:
+            cell_value = "" if cell[0] is None else str(cell[0])
+            cell_style = f"background-color:{cell[2].bgColor.rgb};color:{cell[3]}"
+            if cell_style.endswith("'>"):
+                cell_style = cell_style[:-2]
+            # if cell[2].bgColor.rgb != "FFFFFF":
+            row_html += f"<td style='{cell_style}'>{cell_value}</td>"
+            # else:
+            #     print(cell[2].bgColor.rgb)
+            #     row_html += f"<td>{cell_value}</td>"
+        data_rows += f"<tr>{row_html}</tr>"
+        
     emails = json.load(open("config_files/emails.json"))
 
     next_month = (datetime.now() + timedelta(days=30)).strftime("%B")
-    to = emails["recipients"]
-    cc = emails["cc"]
+    to = emails["gmail_recipients"]
+    cc = emails["gmail_cc"]
     sender = emails["sender"]
     subject = f"{next_month} Calendar for Emo's/Scoot Inn"
     message_text_html  = r'''Hi All!<br/><br/>I hope everyone is well. It's that time of the month to start looking ahead to {}. The following shows need to be covered:<br/><br/>{table}
-    <br/>Make note of dates where there are shows at both venues. Let me know if there are specific shows you'd like to work. Otherwise,
-    just let me know your availability and I'll get the schedule put together in the next day or two. As always, it's first come first serve. If you have any questions or concerns,
-    please let me know.<br/><br/>Cheers,<br/>Tim'''.format(next_month, table=tabulate(data, headers="firstrow", tablefmt = "html"))
-    message_text_plain = f"""Hi All! \n \n I hope everyone is well. It's that time of the month to start looking ahead to {next_month}. The following shows need to be covered:\n \n
-    {data} \n \n Make note of dates where there are shows at both venues. Let me know if there are specific shows you'd like to work.
-    Otherwise just let me know your availability and I'll get the schedule put together in the next day or two. As always, it's first come first serve. If you have any questions or
-    concerns, please let me know. \n \nCheers,\nTim"""
+    <br/>Make note of dates where there are shows at both venues as indicated above, and let me know if there are specific shows you'd like to work. Otherwise, just let me know your
+    availability and I'll get the schedule put together in the next day or two. As always, it's first come first serve.
+    <br/><br/>The list of shows in this email is created from what is currently listed on the event calendars of the Emo's and Scoot Inn websites, so there may
+    be more shows added at a later date. I will do my best to keep you all informed of any such updates.
+    <br/><br/>If you have any questions, please let me know.
+    <br/><br/>Cheers,<br/>{sender_name}
+    <br/>Emo's/Scoot Inn Merch Coordinator
+    <br/>{sender_email} // {sender_number}'''.format(next_month, table=table_html.format(header_cells=header_cells, data_rows=data_rows), sender_name=emails["name"], sender_email=emails["sender"], sender_number=emails["number"])
+    message_text_plain = '''Hi All! \n \n
+    I hope everyone is well. It's that time of the month to start looking ahead to {}. The following shows need to be covered:
+    {}
+    \n Make note of dates where there are shows at both venues as indicated above, and let me know if there are specific shows you'd like to work. Otherwise, just let me know your
+    availability and I'll get the schedule put together in the next day or two. As always, it's first come first serve.
+    \n \n The list of shows in this email is created from what is currently listed on the event calendars of the Emo's and Scoot Inn websites, so there may
+    be more shows added at a later date. I will do my best to keep you all informed of any such updates.
+    \n \n If you have any questions, please let me know.
+    \n \n Cheers,
+    \n {}
+    \n Emo's/Scoot Inn Merch Coordinator
+    \n {} // {}'''.format(next_month, data, emails["name"], emails["sender"], emails["number"])
+
     attached_file = r''
     create_message_and_send(sender, to, cc, subject, message_text_plain, message_text_html, attached_file)
 

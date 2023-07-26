@@ -1,12 +1,15 @@
-# Merch Coordinator Automator
+# Merch Coordinator Automator v3.0
 
-This repository is for the work I do at the LiveNation venues Emo's and the Historic Scoot Inn in Austin, TX. I simply created this project to improve my Python skills, and assist with my tasks as the manager for the Merch Coordinators. The original implementation of this project was just the `calendar_generator.py` script, which would produce a `csv` called `calendar.csv` that contained the information for all shows on the Emo's and Scoot Inn calendars found on their respective websites. This has since been expanded to include scripts that will take that information and email a table of just the shows for next month to all the Merch Coordinators using either GMail or Outlook 365.
+This repository is for the work I do at the LiveNation venues Emo's and the Historic Scoot Inn in Austin, TX. I simply created this project to improve my Python skills, and assist with my tasks as the manager for the Merch Coordinators. The original implementation of this project was just the `calendar_generator.py` script, which would produce a `csv` called `calendar.csv` that contained the information for all shows on the Emo's and Scoot Inn calendars found on their respective websites. This has since been expanded to include scripts that will take that information and email a table of just the shows for next month to all the Merch Coordinators using either Gmail or Outlook365.  In this version, the event dates are no longer retrieved using `dates = soup.find_all('meta', itemprop = 'startDate')`, but rather by the `eventMonth` and `eventDay` tags with some additional logic for improved accuracy for the event dates.
 
 ## Summary
 
-`cal_emailer_gmail.py` and `cal_emailer_o365.py` will invoke `calendar_generator.py`, which will scrape the calendars on the [Emo's ](https://www.emosaustin.com/events-calendar) and [Scoot Inn](https://scootinnaustin.com/calendar) websites to generate a couple of `csv` files with the information needed to create the schedule for the Merch Coordinators. In the process, there will be 2 files created that are included in the `.gitignore` - `email_table.csv` and `calendar.csv`.
+`cal_emailer_gmail.py` and `cal_emailer_o365.py` will invoke `calendar_generator.py`, which will scrape the calendars on the [Emo's ](https://www.emosaustin.com/events-calendar) and [Scoot Inn](https://scootinnaustin.com/calendar) websites to generate a couple of `csv` files with the information needed to create the schedule for the Merch Coordinators. In the process, there will be 2 files created that are included in the `.gitignore` - `csv_files/email_table.csv` and `csv_files/calendar.csv`.
 
-`email_table.csv` will be used to email the Merch Coordinators the shows coming up next month that need to be staffed with just the date, artist, time, and venue. `calendar.csv` is a little more expansive and generated in a format that can then be quickly modified and imported into Google Calendar using [the format expressed in the documentation here](https://support.google.com/calendar/answer/37118?hl=en&co=GENIE.Platform%3DDesktop#zippy=%2Ccreate-or-edit-a-csv-file).
+`csv_files/email_table.csv` will be used to create the table that is emailed the Merch Coordinators with the shows coming up next month that need to be staffed with just the date, artist, time, venue, and notes. Logic has been added in this version to identify dates where there are shows at both venues and to then make note of that in the table in the email that is sent to the Merch Coordinators. This ends up creating `xlsx_files/email_table.xlsx` with the rows highlighted for dates when there are concurrent shows. This is the table that then gets emailed to the team. 
+
+`csv_files/calendar.csv` is a little more expansive and generated in a format that can then be quickly modified and imported into Google Calendar using [the format expressed in the documentation here](https://support.google.com/calendar/answer/37118?hl=en&co=GENIE.Platform%3DDesktop#zippy=%2Ccreate-or-edit-a-csv-file).
+
 
 ## Getting started
 
@@ -34,21 +37,61 @@ pip install -r requirements.txt
 
 ### Setup `emails.json`
 
-You'll need to create the file `emails.json` in the `./config_files` directory to put the necessary email addresses in the scripts. The file will be invoked in the scripts using the following:
+You'll need to create the file `./config_files/emails.json` to put the necessary email addresses in the scripts. There is a difference in the formats for `recipients` and `cc` between Outlook365 and Gmail that will be discussed below. The file will be invoked in the scripts using the following:
 
 ```
 emails = json.load(open("config_files/emails.json"))
 ```
 
-This will allow you to call the sender, recipients, and any ccs using the following syntax:
+This will allow you to call the sender, recipients, and any ccs using the following syntax for Gmail:
 
 ```
+to = emails["gmail_recipients"]
+cc = emails["gmail_cc"]
 sender = emails["sender"]
-to = emails["recipients"]
-cc = emails["cc"]
 ```
 
-I have included `./config_files/sample_emails.json` so the user could use that as a template and rename to `emails.json`. Provide a list of the `recipients` separated by commas, e.g. user1@email.com, user2@email.com, user3@email.com. For `sender`, simply provide your own email (regardless of what is provided, it will show the sender as the email account that was authenticated in this workflow). You can also provide addresses in the `cc` similarly to how the recipients are done.
+And the following syntax for Outlook365 (there's no need to specify the sender):
+
+```
+"toRecipients": emails["recipients"],
+"ccRecipients": emails["cc"]
+```
+
+I have included `./config_files/sample_emails.json` so the user could use that as a template and rename to `emails.json`. For `sender`, simply provide your own email (regardless of what is provided, it will show the sender as the email account that was authenticated in this workflow). The following information explains the format in which to provide the `recipients` and `cc's` for both Gmail and Outlook365.
+
+For Gmail, provide a list of emails for the intended recipients for `gmail_recipients` separated by commas, e.g. `"user1@email.com, user2@email.com, user3@email.com", etc`. Similarly, provide a list of emails for `gmail_cc` in the same format (if applicable).
+
+However, for Outlook365, the `recipients` and `cc's` will be provided in the following format:
+
+```
+    "recipients": [
+        {
+            "emailAddress": {
+                "address": "user@email.com"
+            }
+        },
+        {
+            "emailAddress": {
+                "address": "user1@email.com"
+            }
+        }
+    ],
+    "cc": [
+        {
+            "emailAddress": {
+                "address": "user3@email.com"
+            }
+        },
+        {
+            "emailAddress": {
+                "address": "user4@email.com"
+            }
+        }
+    ]
+```
+
+Simply use `config_files\sample_emails.json` as a template and modify as needed!
 
 ### For `cal_emailer_gmail.py`
 
@@ -108,12 +151,67 @@ Once everything is in place, simply execute:
 python cal_emailer_o365.py
 ```
 
-A browser window will open up for you to authenticate your machine. Just follow the instructions, and once you've logged into your account you'll be directed to your Outlook inbox - keep this window open for 15 seconds after which the email will be sent to the specified recipients!
+A browser window will open up for you to authenticate your machine. Just follow the instructions, and once you've logged into your account you'll be directed to your Outlook365 inbox - keep this window open for 15 seconds after which the email will be sent to the specified recipients.
 
 If for some reason, you're having network issues, and 15 seconds isn't long enough for the script to authenticate and log in, update line 33 in the `cal_emailer_o365.py` script:
 
 ```
 time.sleep(15)
 ```
+
+## TROUBLESHOOTING
+
+### ISSUE:
+
+When working on version 2 of this script, I noticed in February and March of 2023 that it appeared to be skipping over events happening on the first of the month. While there was no error to indicate why this was happening because the script was techincally working correctly, the following variables establishing the first of the next two months had to be adjusted:
+
+```
+    first_next_month = (now + timedelta(days=30)).replace(day=1)
+    first_after_next = (now + timedelta(days=60)).replace(day=1)
+```
+
+The reason for this was because the `startDate` in the `html` output appears in the following format: `2023-03-01T00:00:00.000Z`. The timestamps are usually `00:00:00.000Z` as shown in the example so this meant that if I set `first_next_month = (now + timedelta(days=30)).replace(day=1)`, the timestamp for the first of next month would be set to at whatever time I ran the script. For example, if I ran the script mid-Febraury sometime around 4:15 PM, then `first_next_month = 2023-03-01T16:15:23:000Z`, and if the `startDate` for an event on the first of next month is `2023-03-01T00:00:00.000Z`, this means that when the script will skip that event entirely when executing the following logic: `if start_date >= first_next_month.date() and start_date < first_after_next.date():`.
+
+### SOLUTION:
+
+For this reason, the `first_next_month` and `first_after_next` variables had been updated to the following:
+
+```
+    first_next_month = (now + timedelta(days=30)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    first_after_next = (now + timedelta(days=60)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+```
+
+This has been resolved and should not present any issues - this is strictly for documentation purposes.
+
+### ISSUE:
+
+I encountered the following error while prerparing the calendar and schedule for August 2023:
+
+```
+    doors_time = datetime.strptime(doors[i].get_text()[15:].lstrip(), '%I:%M %p')
+                                   ~~~~~^^^
+IndexError: list index out of range
+```
+
+### EXPLANATION
+
+After reviewing the script carefully, I couldn't see any issue with the script itself and printed out the doors variable: `print(doors)`. I noticed that there were only 5 door times listed for all the shows listed at the Scoot Inn Event Calendar Page, and upon visiting the site, noticed that there were only door times listed for 5 events. Furthermore, since the door times are for 5 events over several months, the times would not align correctly with the other event details because of how the script is structured. That is to say that for the time being, this script only works if all the data is present - mainly event/artist name, event date and the doors time.
+
+### SOLUTION
+
+As a temporary, possibly permanent measure, the logic - `if i >= 0 and i < len(artists):` - has been updated and expanded to:
+
+```
+if i >= 0 and i < len(doors) and i < len(artists):
+... (omitted code for brevity)
+
+else:
+    # Handle the case when the index i is out of range for doors or artists
+    print("\n!!! INDEX OUT OF RANGE FOR DOORS OR ARTISTS:", i, "!!!\n")
+    print("What does this mean? This means that there most likely may be some data missing so you'll want to check over your csv files and first make sure that all your events are listed. Next, make sure all the event dates and doors time are correct to the event as listed on the venues' event calendar webpages. Add any events that may have gotten skipped and adjust any door times as needed.\n")
+
+```
+
+Better error handling may be added in future versions, but for now, be sure you're getting all the data you need and this should go without saying, but always double check the information!
 
 And that's it for now - this should cover everything to generate the calendar and create the merch coordinator schedule for next month!
