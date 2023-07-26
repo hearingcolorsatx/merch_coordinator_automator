@@ -35,7 +35,6 @@ def compile_info():
     # Set up variables for event date list, door time list, datetime for now, next month and the month after
     combined_dates = sorted(list(set(combined_dates)), key=lambda x: datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.000Z"))
     doors = soup.find_all('span', itemprop='doorTime')
-    print(doors)
     now = datetime.now()
     first_next_month = (now + timedelta(days=30)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     first_after_next = (now + timedelta(days=60)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
