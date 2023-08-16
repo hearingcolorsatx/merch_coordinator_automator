@@ -1,4 +1,4 @@
-# Merch Coordinator Automator v3.0
+# Merch Coordinator Automator v4.0
 
 This repository is for the work I do at the LiveNation venues Emo's and the Historic Scoot Inn in Austin, TX. I simply created this project to improve my Python skills, and assist with my tasks as the manager for the Merch Coordinators. The original implementation of this project was just the `calendar_generator.py` script, which would produce a `csv` called `calendar.csv` that contained the information for all shows on the Emo's and Scoot Inn calendars found on their respective websites. This has since been expanded to include scripts that will take that information and email a table of just the shows for next month to all the Merch Coordinators using either Gmail or Outlook365.  In this version, the event dates are no longer retrieved using `dates = soup.find_all('meta', itemprop = 'startDate')`, but rather by the `eventMonth` and `eventDay` tags with some additional logic for improved accuracy for the event dates.
 

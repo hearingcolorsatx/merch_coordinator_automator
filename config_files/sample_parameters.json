@@ -5,5 +5,6 @@
     "redirect_uri": "https://redirect./app/UserHome",
     "scope": "Mail.Send",
     "tenant": "TENANT_ID",
-    "token_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/token"
+    "token_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/token",
+    "cookie": "COOKIE_FROM_LIVENATION"
 }
