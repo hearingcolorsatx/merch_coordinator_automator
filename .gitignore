@@ -1,10 +1,6 @@
 __pycache__
 .venv
 
-# xlsx files
-~$email_table.xlsx
-email_table.xlsx
-
 # auth/config
 credentials.json
 emails.json
@@ -13,11 +9,10 @@ parameters.json
 sa-file.json
 
 # random
-test.py
 development/
 csv_files/
 xlsx_files/
 txt_outputs/
 
 # deprecated 
-old_calendar_generator.py.bkp
+deprecated
