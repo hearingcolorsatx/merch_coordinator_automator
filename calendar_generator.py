@@ -226,11 +226,11 @@ def find_concurrent_shows(*args):
         scoot_inn_dates = set(data['start_date'] for data in venues_info["SCOOT INN"]['event_info'])
 
     common_dates = emos_dates.intersection(scoot_inn_dates)
-    concurrent_dates.append(common_dates)
-    print("\nThe following dates have shows at all venues:", common_dates ,'\n')
+    sorted_dates = sorted(common_dates)
+    print("\nThe following dates have shows at all venues:", sorted_dates ,'\n')
 
     print("Those corresponding shows are:\n")
-    for date in common_dates:
+    for date in sorted_dates:
         for venue in venues_info:
             number_of_events = len(venues_info[venue]['event_info'])
             
