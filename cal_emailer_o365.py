@@ -1,9 +1,6 @@
 import json, logging, pyautogui, pyperclip, requests, time, webbrowser
 
 from calendar_generator import *
-from openpyxl import load_workbook
-from openpyxl.styles import colors, Font, Color
-from tabulate import tabulate
 from datetime import datetime, timedelta
 from urllib.parse import urlparse, parse_qs
 
@@ -11,7 +8,6 @@ logging.basicConfig(level=logging.ERROR)
 
 config = json.load(open("config_files/parameters.json"))
 emails = json.load(open("config_files/emails.json"))
-# print(emails["recipients"])
 
 # Define the request parameters
 authorize_endpoint = config["auth_endpoint"]
@@ -70,69 +66,51 @@ api_url = 'https://graph.microsoft.com/v1.0/me/sendMail'
 headers = {'Authorization': 'Bearer ' + access_token,
            'Content-Type': 'application/json'}
 
-next_month = (datetime.now() + timedelta(days=30)).strftime("%B")
+## Set up the email message properties
+next_month = (datetime.now() + timedelta(days=30)).strftime("%B")     # Get next month for the email subject and body
+event_data = venues_info["EMO'S"]['email_data'] + venues_info["SCOOT INN"]['email_data']          # Import event data
 
-compile_info()
+# Set up table header from the dictionary keys
+table_header = '<tr>' + ''.join([f'<th style="border: 1px solid black;">{key}</th>' for key in event_data[0].keys()]) + '</tr>'
 
-# Load the xlsx file
-workbook = load_workbook(filename='xlsx_files/email_table.xlsx')
-worksheet = workbook.active
+# Build the rest of the table using dictionary values
+table_rows = ''
+for item in event_data:
+    row = '<tr>' + ''.join([f'<td style="border: 1px solid black;">{value}</td>' for value in item.values()]) + '</tr>'
+    table_rows += row
 
-# Read the data from the worksheet
-data = []
-for row in worksheet.iter_rows(min_row=1, min_col=1, max_col=5, values_only=False):
-    # print(row)
-    row_data = []
-    for cell in row:
-        value = cell.value
-        font = cell.font.name
-        fill = cell.fill
-        color = cell.font.color.rgb
-        # print(color)
-        row_data.append((value, font, fill, color))
-        # print(row_data)
-    data.append(row_data)
-# print(row_data)
-
-# Set the email message properties
-table_html = """
-<table border="1" cellpadding="2" cellspacing="0">
-<tr>
-{header_cells}
-</tr>
-{data_rows}
+# Assemble the event table in HTML format
+event_table = f"""
+<table style="border: 1px solid black; border-collapse: collapse;">
+    <thead>{table_header}</thead>
+    <tbody>{table_rows}</tbody>
 </table>
 """
-header_cells = ""
-for header, font, fill, color in data[0]:
-    header_cells += f"<th style='background-color:{fill.bgColor.rgb};color:{color}{header}</th>"
 
-data_rows = ""
-for row_data in data[1:]:
-    row_html = ""
-    for cell in row_data:
-        cell_value = "" if cell[0] is None else str(cell[0])
-        cell_style = f"background-color:{cell[2].bgColor.rgb};color:{cell[3]}"
-        if cell_style.endswith("'>"):
-            # cell_style = cell_style[:-2]
-            cell_style = "background-color:00FFFFFF;color:00000000"
-        # if cell[2].bgColor.rgb != "FFFFFF":
-        print(cell_style)
-        row_html += f"<td style='{cell_style}'>{cell_value}</td>"
-        # else:
-        #     print(cell[2].bgColor.rgb)
-        #     row_html += f"<td>{cell_value}</td>"
-    data_rows += f"<tr>{row_html}</tr>"
+# Assemble the duplicate show table in HTML format
+show_data = concurrent_shows['shows']
+concurrent_show_rows = ''
+for show in show_data:
+    row = '<tr>' + ''.join([f'<td style="border: 1px solid black;">{value}</td>' for value in show]) + '</tr>'
+    concurrent_show_rows += row
+dupe_show_table = f"""
+<table style="border-collapse: collapse;">
+    <thead>{table_header}</thead>
+    <tbody>{concurrent_show_rows}</tbody>
+</table>
+"""
 
 payload = {
     "message": {
         "subject": f"{next_month} Calendar for Emo's/Scoot Inn",
         "body": {
             "contentType": "HTML",
-            "content": f'''<html>Hi All!<br/><br/>I hope everyone is well. It's that time of the month to start looking ahead to {next_month}. The following shows need to be covered:
-                        <br/><br/>{table_html.format(header_cells=header_cells, data_rows=data_rows)}
-                        <br/>Make note of dates where there are shows at both venues as indicated above, and let me know if there are specific shows you'd like to work. Otherwise,
-                        just let me know your availability and I'll get the schedule put together in the next day or two. As always, it's first come first serve.
+            "content": f'''<html>Hi All!<br/><br/>I hope everyone is well. It's that time of the month to start looking ahead to {next_month}. The following shows need to be covered:<br/>
+                        <br/>{event_table}
+                        <br/> The following is a list of the concurrent shows next month: <br/>
+                        <br/>{dupe_show_table}<br/>
+                        Let me know if there are specific shows you'd like to work. Otherwise, just let me know your availability and I'll get the schedule put together in the next
+                        day or two. As always, it's first come first serve.
                         <br/><br/>The list of shows in this email is created from what is currently listed on the event calendars of the Emo's and Scoot Inn websites, so there may
                         be more shows added at a later date. I will do my best to keep you all informed of any such updates.
                         <br/><br/>If you have any questions, please let me know.

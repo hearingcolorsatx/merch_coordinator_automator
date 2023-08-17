@@ -12,9 +12,12 @@ emails_1.json
 parameters.json
 sa-file.json
 
-#random
+# random
 test.py
 development/
 csv_files/
 xlsx_files/
 txt_outputs/
+
+# deprecated 
+old_calendar_generator.py.bkp

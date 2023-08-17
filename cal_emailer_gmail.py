@@ -1,14 +1,9 @@
 import base64, httplib2, json, oauth2client, os
 
-from email import encoders
-from oauth2client import client, tools, file
-from tabulate import tabulate
-
+from oauth2client import client, tools
 #needed for attachment
-import mimetypes, smtplib
+import mimetypes
   
-from openpyxl import load_workbook
-from openpyxl.styles import colors, Font, Color
 from email import encoders
 from email.message import Message
 from email.mime.audio import MIMEAudio

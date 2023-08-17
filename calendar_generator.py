@@ -1,185 +1,251 @@
-import os, requests, csv, sys
-from datetime import datetime, timedelta
+import requests, re, sys, os, json, csv, time
 from bs4 import BeautifulSoup
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import PatternFill
+from datetime import datetime, timedelta
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
-# Set up lists to select venues and build information tables
-print("Setting up the lists...")
-print()
-venues = ["EMO'S", "SCOOT INN"]
-output = []
-table = []
-date_events = {}
+config = json.load(open("config_files/parameters.json"))
 
-# Compile all the data
-def compile_info():
-    print()
-    print("Compiling info for", venue.title()+ ":")
-    # Get the date of the event
-    current_month = datetime.now().month
-    event_months = soup.find_all('span', class_='eventMonth')
-    event_days = soup.find_all('span', class_='eventDay')
-    combined_dates = []
-
-    # Establish the year and build the date variable
-    for event_month, event_day in zip(event_months, event_days):
-        if datetime.strptime(event_month.text, "%b").month < current_month:
-            year += 1
-        else:
-            year = datetime.now().year
-        month_numerical = datetime.strptime(event_month.text, "%b").month
-        date = f"{year}-{month_numerical:02d}-{event_day.text}T00:00:00.000Z"
-        combined_dates.append(date)
-        year = datetime.now().year
-    # Set up variables for event date list, door time list, datetime for now, next month and the month after
-    combined_dates = sorted(list(set(combined_dates)), key=lambda x: datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.000Z"))
-    doors = soup.find_all('span', itemprop='doorTime')
-    now = datetime.now()
-    first_next_month = (now + timedelta(days=30)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    first_after_next = (now + timedelta(days=60)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-    # Set up the output for the CSV files
+# Build the event_data dictionary that will populate venues_info[venue]['event_info']
+def create_event_data(event_title, start_date, call_time, doors_time, end_date, end_time, location, venue):
     i = 0
-    for artist in artists:
-        description = f"=CONCATENATE(H{len(output) + 2},UPPER(I{len(output) + 2}))"
-        start_date = datetime.strptime(combined_dates[i], "%Y-%m-%dT%H:%M:%S.%fZ").date()
-        # Isolate the shows for only next month
-        if start_date >= first_next_month.date() and start_date < first_after_next.date():
-            if i >= 0 and i < len(doors) and i < len(artists):
-                combined = []
-                # If the show has MOVED TO in the event title, indicating the date and/or venue location has changed
-                if "MOVED TO" in artist.get_text():
-                    doors.insert(i, "N/A")
-                    doors_time = "N/A"
-                    call_time = "N/A"
-                    end_time = "N/A"
-                    end_date = "N/A"
-                # Otherwise, build the main lists for the remaining shows
+    event_data = {
+        'start_date': start_date.strftime('%Y-%m-%d'),
+        'subject': event_title,
+        'start_time': call_time,
+        'end_time': end_time,
+        'end_date': end_date,
+        'location': location,
+        'venue': venue,
+        'description': f"=CONCATENATE(I{i + 2},UPPER(J{i + 2}))",
+        'description_1': f"DOORS TIME: {doors_time}\n VENUE: {venue}\n MERCH COORDINATOR:",
+        'merch_coordinator': None
+    }
+    venues_info[venue]['event_info'].append(event_data)
+    # print(event_data)
+    i += 1
+
+    # Create the email_tables
+    create_email_table(event_title, start_date, call_time, venue)
+    return event_data
+
+# Export data to CSV file
+def write_csv():
+    # Set up headers for the CSV file used to create the schedule and the table emailed to the team
+    print("\nSetting up the CSV headers...\n")
+    headers = ['start_date','subject', 'start_time', 'end_time', 'end_date', 'location', 'venue', 'description', 'description_1', 'merch_coordinator']
+
+    # Generate calendar.csv in the ./csv_files folder that wil be used to create the schedule in a format that can be imported in Google Calendars
+    print("Creating csv_files/calendar.csv...\n")
+    with open('csv_files/calendar.csv', 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=headers)
+        writer.writeheader()
+
+        for venue in venues_info:
+            all_event_data = venues_info[venue]['event_info']
+            for event_data in all_event_data:
+                writer.writerow(event_data)
+    print("Exported to " + os.getcwd() + "csv_files/calendar.csv\n")
+
+# Build the email_data dictionary that will be emailed to the team
+def create_email_table(event_title, start_date, call_time, venue):
+    email_data = {
+        'Artist': event_title,
+        'Date': start_date.strftime('%Y-%m-%d'),
+        'Call Time': call_time,
+        'Venue': venue,
+        }
+    venues_info[venue]['email_data'].append(email_data)
+    print(event_title, "||", start_date.strftime('%Y-%m-%d'), "||", call_time, "||", venue)
+    return email_data
+
+venues_info = {
+    "EMO'S": {
+        'url': "https://www.emosaustin.com/events-calendar",
+        'location': "2015 E Riverside Dr, Austin, TX 78741",
+        'event_info': [],
+        'email_data': []
+    },
+    "SCOOT INN": {
+        'url': "https://scootinnaustin.com/calendar",
+        'location': "1308 E 4th St, Austin, TX 78702",
+        'event_info': [],
+        'email_data': []
+    },
+}
+
+concurrent_shows = {
+    "shows": []
+}
+
+# Compile all the event info
+def compile_info():
+    for venue, info in venues_info.items():
+        print("\nGetting all the events from " + venue.title() + " for next month...\n")
+
+        response = requests.get(info['url'])        
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            # # Uncomment the following lines to print the soup variable to txt files named after the corresponding 
+            # # venue and see exactly what you are parsing. The files have been added to the .gitignore.
+            # with open(f'txt_outputs/venue_data/{venue}_code.txt', 'w', encoding='utf-8') as python_output:
+            #     sys.stdout = python_output
+            #     print(soup)
+            # sys.stdout = sys.__stdout__
+
+            event_elements = soup.find_all('div', class_='frontgateFeedSummary')
+            for event_element in event_elements:
+                # Artist/Event name
+                event_title = event_element.find('h2', class_='contentTitle').text.strip()                
+                
+                # Start date info
+                month_element = event_element.find('span', class_='eventMonth').text.strip()
+                day_element = event_element.find('span', class_='eventDay').text.strip()
+                current_month = datetime.now().month
+                year = datetime.now().year                
+                if datetime.strptime(month_element, "%b").month < current_month:
+                    year += 1
                 else:
-                    doors_time = datetime.strptime(doors[i].get_text()[15:].lstrip(), '%I:%M %p')
-                    # print(doors_time)
-                    call_time = (doors_time - timedelta(hours=1))
-                    end_dt = datetime.combine(start_date, doors_time.time()).strftime('%Y-%m-%d %I:%M %p')
-                    end_datetime = (datetime.strptime(end_dt, '%Y-%m-%d %I:%M %p') + timedelta(hours=5)).strftime('%Y-%m-%d %I:%M %p')
-                    end_time = end_datetime[end_datetime.index(" "):].lstrip()
-                    end_date = end_datetime[0:end_datetime.index(" ")]
-                # Start building the event tables that will be used to make the schedule and email the team
-                event = [start_date, artist.get_text().replace("â€™", "'"), call_time.time().strftime("%I:%M %p"), venue]
-                combined.extend([start_date, artist.get_text(), call_time.time().strftime("%I:%M %p"), end_time, end_date, location, description])
-                combined.append(("Doors: " + doors_time.time().strftime("%I:%M %p") + "\nVenue: " + venue + "\nMerch Coordinator: ").upper())
-                output.append(combined)
-            else:
-                # Handle the case when the index i is out of range for doors or artists
-                print("\n!!! INDEX OUT OF RANGE FOR DOORS OR ARTISTS:", i, "!!!\n")
-                print("What does this mean? This means that there most likely may be some data missing so you'll want to check over your csv files and first make sure that all your events are listed. Next, make sure all the event dates and doors time are correct to the event as listed on the venues' event calendar webpages. Add any events that may have gotten skipped and adjust any door times as needed.\n")
-            # Build table for event date comparison
-            if start_date not in date_events:
-                date_events[start_date] = []
-            date_events[start_date].append(event)
-            print("The following show needs to be staffed:", event)
-        i += 1
+                    year = datetime.now().year
+                month_numerical = datetime.strptime(month_element, "%b").month
+                start_date_str = f"{year}-{month_numerical:02d}-{day_element}T00:00:00.000Z"
+                start_date = datetime.strptime(start_date_str, "%Y-%m-%dT%H:%M:%S.%fZ").date()
 
-# Set the venues to process for the script
-print("Setting up the venues for this script. The venues for this script are "  + ", ".join([venue.title() for venue in venues]) + ".")
-for venue in venues:
-    if venue == "EMO'S":
-        url = requests.get("https://www.emosaustin.com/events-calendar")
-        location = "2015 E Riverside Dr, Austin, TX 78741"
-    elif venue == "SCOOT INN":
-        url = requests.get("https://scootinnaustin.com/calendar")
-        location = "1308 E 4th St, Austin, TX 78702"
-    # You should never see the following!
+                # Buy link (used in the event doors time not listed on venue event page)
+                buy_button = event_element.find('a', class_='button buyButton')
+                buy_link = buy_button['href']
+                if "ticketmaster" in buy_link:
+                    buy_link = buy_link.replace("www.ticketmaster.com", "concerts.livenation.com")
+                
+                # Doors time info (this logic is for the shows that display doors time on the event page)
+                door_time = event_element.find('span', itemprop='doorTime')
+                doors = door_time.text.strip() if door_time else ""
+                doors_time_match = re.search(r'Doors open at\s+(\d{1,2}:\d{2}\s+[APap][Mm])', doors)
+                doors_time_str = doors_time_match.group(1) if doors_time_match else "N/A"
+
+                # Filter all the shows for next month
+                filter_next_month(event_title, start_date, buy_link, doors_time_str, info['location'], venue)
+        else:
+            print("Failed to fetch the HTML content. Status code:", response.status_code)
+
+# Search for doors time that are missing from event pages
+def find_doors_time(tickets):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+        "Cookie": f'{config["cookie"]}'
+    }
+    ticket_link = requests.get(tickets, headers=headers)        
+    if ticket_link.status_code == 200:
+        ticket_info = BeautifulSoup(ticket_link.content, 'html.parser')
+        date_div = ticket_info.find('div', class_='event-header__event-date')
+        if date_div == None:
+            # This logic was created for www.zeffy.com
+            description_tags = ticket_info.find_all('meta', attrs={'name': 'description'})
+            doors_time_pattern = r'(\d{1,2}(:\d{2})?\s*[APap][Mm])'
+            match = re.search(doors_time_pattern, description_tags[0]['content'])
+            if match:
+                time = match.group(1)
+                time_obj = datetime.strptime(time, '%I%p')
+                doors_time = time_obj.strftime('%I:%M %p')
+                doors_time = doors_time.strip()
+                return doors_time
+            elif not match:
+                # This logic was created for austin.rnbonly.com
+                second_ticket_link = ticket_info.find('a', class_='button n01')
+                browser = webdriver.Chrome()
+                browser.get(second_ticket_link['href'])
+                time_search = WebDriverWait(browser, 30).until(EC.presence_of_element_located((By.XPATH, "//div[@class='event-item-single__time']")))
+                search = time_search.text
+                doors_time = search[0:7]
+                doors_time.strip()
+                browser.quit()
+                return doors_time
+            else:
+                doors_time = '0:00 PM'
+                print("Doors time not found. You'll need to inspect the code of the ticket info page, and add a condition specific to that page.")
+                # print(tickets)
+                return doors_time
+        else:
+            time_text = date_div.get_text()
+            doors_time = time_text.split(' • ')[-1]
+            doors_time = doors_time.strip()
+            return doors_time
+
+        # # The following will generate a file for each show with the data from the buy ticket page when uncommented.
+        # # This will make the script execute a more slowly, but helpful if you need to look at the data you're parsing.
+        #  with open(f'txt_outputs/{show}_code.txt', 'w', encoding='utf-8') as python_output:
+        #     sys.stdout = python_output
+        #     print(ticket_info)
+        # sys.stdout = sys.__stdout__
+
+# Format doors_time_str as datetime object and calculate call_time, end_time, and end_date
+def format_times(start_date, doors_time_str, buy_link):
+    if doors_time_str != "N/A":
+        unformatted_doors_time = datetime.strptime(doors_time_str, "%I:%M %p")
     else:
-        print("No more venues! Check your venue list because you shouldn't see this!")
+        # Since doors_time N/A from event page, go to ticket info page
+        doors_time = find_doors_time(buy_link)
+        unformatted_doors_time = datetime.strptime(doors_time, "%I:%M %p")
 
-    # Get all the HTML data from the Emo's and Scoot Inn event web pages and execute compile_info()
-    soup = BeautifulSoup(url.content, 'html.parser')
+    doors_time = unformatted_doors_time.strftime("%I:%M %p")
+    unformatted_call_time = unformatted_doors_time - timedelta(hours=1)
+    call_time = unformatted_call_time.strftime("%I:%M %p")
+    end_dt = datetime.combine(start_date, unformatted_doors_time.time()).strftime('%Y-%m-%d %I:%M %p')
+    end_datetime = (datetime.strptime(end_dt, '%Y-%m-%d %I:%M %p') + timedelta(hours=5)).strftime('%Y-%m-%d %I:%M %p')
+    end_time = end_datetime[end_datetime.index(" "):].lstrip()
+    end_date = end_datetime[0:end_datetime.index(" ")]
+    # Format doors_time in HH:MM AM/PM format
+    doors_time = unformatted_doors_time.strftime("%I:%M %p") if unformatted_doors_time else "N/A"
 
-    # Uncomment the following lines to print the soup variable to txt files named after the corresponding 
-    # venue and see exactly what you are parsing
-    # with open(f'{venue}.txt', 'w', encoding='utf-8') as python_output:
-    #     # Redirect the standard output to the file
-    #     sys.stdout = python_output
-    #     print(soup)
-    # # Restore the default standard output
-    # sys.stdout = sys.__stdout__
+    return doors_time, call_time, end_time, end_date
 
-    artists = soup.find_all('h2', itemprop='name')
-    compile_info()
+# Filter on the shows for next month
+def filter_next_month(event_title, start_date, buy_link, doors_time_str, location, venue):
+    today = datetime.now()
+    next_month_first_day = (today + timedelta(days=32)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_after_next_first_day = (today + timedelta(days=62)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    start_date = datetime.combine(start_date, datetime.min.time())
 
-# Identify dates when there are shows at both venues
-print()
-print("Identifying dates where both venues have a show...")
-print()
-for date, events in date_events.items():
-    if len(events) > 1:
-        for event in events:
-            if event[3] == "EMO'S":
-                event.append("CONCURRENT SHOW AT SCOOT INN")
-            elif event[3] == "SCOOT INN":
-                event.append("CONCURRENT SHOW AT EMO'S")
-            # You should never see the following!
-            else:
-                print("What d'ya want from me?")
-    table.extend(events)
+    # Find all the shows for next month and create the event_data tables
+    if next_month_first_day <= start_date and start_date < month_after_next_first_day:
+        # Convert doors_time_str to a datetime object and calculate call_time, end_time, and end_date
+        doors_time, call_time, end_time, end_date = format_times(start_date, doors_time_str, buy_link)
+        # Start putting all the event data together
+        create_event_data(event_title, start_date, call_time, doors_time, end_date, end_time, location, venue)
 
-# Set up headers for the CSV file used to create the schedule and the table emailed to the team
-print("Setting up the CSV headers...")
-print()
-header = ['Start Date', 'Subject', 'Start Time', 'End Time', 'End Date', 'Location', 'Description',  'Description_1', 'Merch Coordinator']
-email_header = ['Start Date', 'Subject', 'Start Time', 'Venue', 'Notes']
+# Start compiling the show details
+compile_info()
 
-# Generate email_table.csv in the ./csv_files folder that will be used to email the Merch Coordinators
-print("Creating csv_files/email_table.csv")
-with open('csv_files/email_table.csv', 'w', encoding='UTF8', newline='') as f:
-    writer = csv.writer(f)
-    writer.writerow(email_header)
-    for show in table:
-        if any(field for field in show):
-            writer.writerow(show)
-print("Exported to " + os.getcwd() + "csv_files/email_table.csv")
-print()
+# Find dates when there are concurrent shows at venues
+def find_concurrent_shows(*args):
+    for arg in args:
+        emos_dates = set(data['start_date'] for data in venues_info["EMO'S"]['event_info'])
+        scoot_inn_dates = set(data['start_date'] for data in venues_info["SCOOT INN"]['event_info'])
 
-# Generate calendar.csv in the ./csv_files folder that wil be used to create the schedule in a format that can be imported in Google Calendars
-print("Creating csv_files/calendar.csv")
-with open('csv_files/calendar.csv', 'w', encoding='UTF8', newline='') as f:
-    writer = csv.writer(f)
-    writer.writerow(header)
-    for combo in output:
-        if any(field for field in combo):
-            writer.writerow(combo)
-print("Exported to " + os.getcwd() + "csv_files/calendar.csv")
-print()
+    common_dates = emos_dates.intersection(scoot_inn_dates)
+    concurrent_dates.append(common_dates)
+    print("\nThe following dates have shows at all venues:", common_dates ,'\n')
 
-# Load the CSV file
-with open('csv_files/email_table.csv', 'r', newline='') as f:
-    reader = csv.reader(f)
-    rows = list(reader)
+    print("Those corresponding shows are:\n")
+    for date in common_dates:
+        for venue in venues_info:
+            number_of_events = len(venues_info[venue]['event_info'])
+            
+            for i in range(number_of_events):
+                event_info = venues_info[venue]['event_info'][i]
+                venue_start_date = event_info['start_date']
+                event_name = event_info['subject']
+                event_start_time = event_info['start_time']
+                if venue_start_date == date:
+                    same_shows = [event_name, venue_start_date, event_start_time, venue]
+                    concurrent_shows['shows'].append(same_shows)
+                    print(event_name, "||", venue_start_date, "||", event_start_time, "||", venue)
 
-# Create a new Excel workbook and worksheet
-wb = Workbook()
-ws = wb.active
+# Find concurrent shows
+find_concurrent_shows(venues_info["EMO'S"]['event_info'], venues_info["SCOOT INN"]['event_info'])
 
-# Write the rows to the worksheet
-for row in rows:
-    ws.append(row)
-
-# Remove empty rows
-for i in reversed(range(1, ws.max_row + 1)):
-    if all([cell.value is None for cell in ws[i]]):
-        ws.delete_rows(i)
-
-# Set the fill color and font color for the "Same Date" rows
-fill = PatternFill(start_color='4f81bd', end_color='4f81bd', fill_type='solid')
-font_color = 'fff2cc'
-
-# Loop through the rows and highlight the "Same Date" rows
-for row in ws.iter_rows(min_row=2, min_col=1, max_col=5):
-    if row[4].value == "CONCURRENT SHOW AT SCOOT INN" or row[4].value == "CONCURRENT SHOW AT EMO'S":
-        for cell in row:
-            cell.fill = fill
-            cell.font = cell.font.copy(color=font_color)
-
-# Save the workbook to a file
-wb.save('xlsx_files/email_table.xlsx')
+# Write the CSV
+write_csv()
