@@ -1,14 +1,6 @@
 __pycache__
 .venv
 
-# csv files
-calendar.csv
-email_table.csv
-
-# xlsx files
-~$email_table.xlsx
-email_table.xlsx
-
 # auth/config
 credentials.json
 emails.json
@@ -16,8 +8,11 @@ emails_1.json
 parameters.json
 sa-file.json
 
-#random
-test.py
+# random
 development/
-EMO'S.txt
-SCOOT INN.txt
+csv_files/
+xlsx_files/
+txt_outputs/
+
+# deprecated 
+deprecated
