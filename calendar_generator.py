@@ -9,33 +9,34 @@ from selenium.webdriver.support import expected_conditions as EC
 config = json.load(open("config_files/parameters.json"))
 
 # Build the event_data dictionary that will populate venues_info[venue]['event_info']
+i = 0
 def create_event_data(event_title, start_date, call_time, doors_time, end_date, end_time, location, venue):
-    i = 0
+    global i
     event_data = {
-        'start_date': start_date.strftime('%Y-%m-%d'),
-        'subject': event_title,
-        'start_time': call_time,
-        'end_time': end_time,
-        'end_date': end_date,
-        'location': location,
-        'venue': venue,
-        'description': f"=CONCATENATE(I{i + 2},UPPER(J{i + 2}))",
-        'description_1': f"DOORS TIME: {doors_time}\n VENUE: {venue}\n MERCH COORDINATOR:",
-        'merch_coordinator': None
+        'Start Date': start_date.strftime('%Y-%m-%d'),
+        'Subject': event_title,
+        'Start Time': call_time,
+        'End Time': end_time,
+        'End Date': end_date,
+        'Location': location,
+        'Venue': venue,
+        'Description': f"=CONCATENATE(I{i + 2},UPPER(J{i + 2}))",
+        'Description_1': f"DOORS TIME: {doors_time}\n VENUE: {venue}\n MERCH COORDINATOR:",
+        'Merch Coordinator': None
     }
     venues_info[venue]['event_info'].append(event_data)
     # print(event_data)
-    i += 1
 
     # Create the email_tables
     create_email_table(event_title, start_date, call_time, venue)
+    i += 1
     return event_data
 
 # Export data to CSV file
 def write_csv():
     # Set up headers for the CSV file used to create the schedule and the table emailed to the team
     print("\nSetting up the CSV headers...\n")
-    headers = ['start_date','subject', 'start_time', 'end_time', 'end_date', 'location', 'venue', 'description', 'description_1', 'merch_coordinator']
+    headers = ['Start Date','Subject', 'Start Time', 'End Time', 'End Date', 'Location', 'Venue', 'Description', 'Description_1', 'Merch Coordinator']
 
     # Generate calendar.csv in the ./csv_files folder that wil be used to create the schedule in a format that can be imported in Google Calendars
     print("Creating csv_files/calendar.csv...\n")
@@ -222,8 +223,8 @@ compile_info()
 # Find dates when there are concurrent shows at venues
 def find_concurrent_shows(*args):
     for arg in args:
-        emos_dates = set(data['start_date'] for data in venues_info["EMO'S"]['event_info'])
-        scoot_inn_dates = set(data['start_date'] for data in venues_info["SCOOT INN"]['event_info'])
+        emos_dates = set(data['Start Date'] for data in venues_info["EMO'S"]['event_info'])
+        scoot_inn_dates = set(data['Start Date'] for data in venues_info["SCOOT INN"]['event_info'])
 
     common_dates = emos_dates.intersection(scoot_inn_dates)
     sorted_dates = sorted(common_dates)
@@ -236,9 +237,9 @@ def find_concurrent_shows(*args):
             
             for i in range(number_of_events):
                 event_info = venues_info[venue]['event_info'][i]
-                venue_start_date = event_info['start_date']
-                event_name = event_info['subject']
-                event_start_time = event_info['start_time']
+                venue_start_date = event_info['Start Date']
+                event_name = event_info['Subject']
+                event_start_time = event_info['Start Time']
                 if venue_start_date == date:
                     same_shows = [event_name, venue_start_date, event_start_time, venue]
                     concurrent_shows['shows'].append(same_shows)
